@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import numpy as np
 
 # URL del repositorio de GitHub: https://github.com/smarc05/Laboratorio_VI.git
 
@@ -64,6 +63,14 @@ def secante(coefs, x_1, x0, es, max_iter):
         x0 = xr
     raise ValueError("Máximo de iteraciones alcanzado sin converger.")
 
+def derivada_centrada(coefs, x, h):
+    if h == 0:
+        raise ValueError("El paso 'h' (o 'dx') no puede ser cero.")
+    f_x_mas_h = evaluar_poli(coefs, x + h)
+    f_x_menos_h = evaluar_poli(coefs, x - h)
+    return (f_x_mas_h - f_x_menos_h) / (2 * h)
+
+
 class LaboVIApp:
     def __init__(self, root):
         self.root = root
@@ -84,7 +91,7 @@ class LaboVIApp:
             ttk.Label(main_frame, text=lbl).grid(row=1, column=i+1)
             self.entries_coefs.append(e)
             
-        ttk.Button(main_frame, text="Borrar", command=self.borrar_todo).grid(row=0, column=8, padx=15)
+        ttk.Button(main_frame, text="Borrar Todo", command=self.borrar_todo).grid(row=0, column=8, padx=15)
         ttk.Button(main_frame, text="Valores de prueba", command=self.cargar_valores_prueba).grid(row=1, column=8, padx=15)
 
         lf_raices = ttk.LabelFrame(main_frame, text="Cálculo de una raíz", padding="15")
@@ -116,7 +123,7 @@ class LaboVIApp:
         self.entry_max_iter = ttk.Entry(lf_raices, width=10)
         self.entry_max_iter.grid(row=2, column=5, sticky="w")
 
-        ttk.Button(lf_raices, text="Calcular", command=self.calcular_raiz).grid(row=1, column=6, rowspan=2, padx=20)
+        ttk.Button(lf_raices, text="Calcular Raíz", command=self.calcular_raiz).grid(row=1, column=6, rowspan=2, padx=20)
 
         ttk.Label(lf_raices, text="Raíz:").grid(row=0, column=7, sticky="e")
         self.lbl_res_raiz = ttk.Label(lf_raices, text="---", font=("TkDefaultFont", 9, "bold"))
@@ -134,16 +141,38 @@ class LaboVIApp:
         self.lbl_res_fraiz = ttk.Label(lf_raices, text="---")
         self.lbl_res_fraiz.grid(row=3, column=8, sticky="w")
 
+        lf_der = ttk.LabelFrame(main_frame, text="Cálculo de la derivada primera", padding="15")
+        lf_der.grid(row=3, column=0, columnspan=9, sticky="ew", pady=5)
+        
+        ttk.Label(lf_der, text="x0:").grid(row=0, column=0, padx=5)
+        self.entry_der_x0 = ttk.Entry(lf_der, width=10)
+        self.entry_der_x0.grid(row=0, column=1, padx=5)
+        
+        ttk.Label(lf_der, text="dx (paso h):").grid(row=0, column=2, padx=5)
+        self.entry_der_dx = ttk.Entry(lf_der, width=10)
+        self.entry_der_dx.grid(row=0, column=3, padx=5)
+        
+        ttk.Button(lf_der, text="Calcular Derivada", command=self.calcular_derivada).grid(row=0, column=4, padx=20)
+        
+        ttk.Label(lf_der, text="Derivada f'(x0):").grid(row=0, column=5, padx=5)
+        self.lbl_res_der = ttk.Label(lf_der, text="---", font=("TkDefaultFont", 9, "bold"))
+        self.lbl_res_der.grid(row=0, column=6, padx=5)
+
     def toggle_raices_inputs(self):
         if self.var_metodo.get() == "newton":
             self.entry_raiz_x2.config(state="disabled")
         else:
             self.entry_raiz_x2.config(state="normal")
 
+    def get_coefs(self):
+        try:
+            return [float(e.get()) for e in self.entries_coefs]
+        except ValueError:
+            raise ValueError("Por favor, complete todos los coeficientes del polinomio con números válidos.")
+
     def calcular_raiz(self):
         try:
-            coefs = [float(e.get()) for e in self.entries_coefs]
-            
+            coefs = self.get_coefs()
             metodo = self.var_metodo.get()
             x1 = float(self.entry_raiz_x1.get())
             max_iter = int(self.entry_max_iter.get())
@@ -175,7 +204,21 @@ class LaboVIApp:
             self.lbl_res_fraiz.config(text=f"{fraiz:.2e}")
             
         except ValueError as ve:
-            messagebox.showerror("Error de Entrada/Matemático", str(ve))
+            messagebox.showerror("Error en Raíces", str(ve))
+        except Exception as e:
+            messagebox.showerror("Error Inesperado", f"Ocurrió un error: {str(e)}")
+
+    def calcular_derivada(self):
+        try:
+            coefs = self.get_coefs()
+            x0 = float(self.entry_der_x0.get())
+            dx = float(self.entry_der_dx.get())
+            
+            der = derivada_centrada(coefs, x0, dx)
+            self.lbl_res_der.config(text=f"{der:.6f}")
+            
+        except ValueError as ve:
+            messagebox.showerror("Error en Derivada", str(ve))
         except Exception as e:
             messagebox.showerror("Error Inesperado", f"Ocurrió un error: {str(e)}")
 
@@ -189,25 +232,31 @@ class LaboVIApp:
         
         self.entry_raiz_x1.insert(0, '0')
         self.entry_raiz_x2.insert(0, '1')
-        
         self.var_tol.set("cifras")
         self.entry_es.insert(0, '0.5')
         self.entry_cifras.insert(0, '4')
         self.entry_max_iter.insert(0, '100')
+        
+        self.entry_der_x0.insert(0, '1')
+        self.entry_der_dx.insert(0, '0.1')
 
     def borrar_todo(self):
-        for e in self.entries_coefs: 
-            e.delete(0, tk.END)
+        for e in self.entries_coefs: e.delete(0, tk.END)
+        
         self.entry_raiz_x1.delete(0, tk.END)
         self.entry_raiz_x2.delete(0, tk.END)
         self.entry_es.delete(0, tk.END)
         self.entry_cifras.delete(0, tk.END)
         self.entry_max_iter.delete(0, tk.END)
         
+        self.entry_der_x0.delete(0, tk.END)
+        self.entry_der_dx.delete(0, tk.END)
+        
         self.lbl_res_raiz.config(text="---")
         self.lbl_res_iter.config(text="---")
         self.lbl_res_ea.config(text="---")
         self.lbl_res_fraiz.config(text="---")
+        self.lbl_res_der.config(text="---")
 
 if __name__ == "__main__":
     root = tk.Tk()
